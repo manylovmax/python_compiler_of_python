@@ -102,6 +102,7 @@ class LexicalAnalyzer:
 
                         elif c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
                             self.set_state(TokenConstructions.FUNCTION_CALL_START)
+                            print(f'function call: "{current_token}"')
                             current_token = ''
                         elif c == ')' and self.current_state == TokenConstructions.FUNCTION_CALL_START:
                             self.set_state(TokenConstructions.NEW_TOKEN)
@@ -112,7 +113,7 @@ class LexicalAnalyzer:
                         elif c == '"' and self.current_state == TokenConstructions.STRING_2:
                             self.set_state(TokenConstructions.NEW_TOKEN)
                             current_token = ''
-                            print(f'string: {current_string}')
+                            print(f'string: "{current_string}"')
                             current_string = ''
                         elif c == '\'' and self.current_state != TokenConstructions.STRING_1:
                             self.current_state = TokenConstructions.STRING_1
@@ -120,7 +121,7 @@ class LexicalAnalyzer:
                         elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
                             self.set_state(TokenConstructions.NEW_TOKEN)
                             current_token = ''
-                            print(f'string: {current_string}')
+                            print(f'string: "{current_string}"')
                             current_string = ''
 
                     current_character_number += 1
