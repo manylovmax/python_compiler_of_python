@@ -1,4 +1,4 @@
 from lexical_analyzer import LexicalAnalyzer
 
-la = LexicalAnalyzer('variables.f90')
+la = LexicalAnalyzer('hello_world.py')
 la.analyze()
