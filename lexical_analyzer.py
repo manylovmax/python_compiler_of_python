@@ -4,13 +4,16 @@ from enum import Enum
 TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
 COMMENTS_START_SYMBOL = '#'
 TOKENS_ADD_INDENT = ['if', 'elif']  # TODO: нужно дописать
-PROGRAM_KEYWORDS = ('none',)  # TODO: нужно дописать
+PROGRAM_KEYWORDS = ('none', 'if', 'elif', 'else', 'foreach', 'print')  # TODO: нужно дописать
 
 
 class TokenConstructions(Enum):
     NEW_TOKEN = 1
     IF_DECLARATION_START = 2
     ELIF_DECLARATION_START = 3
+    FUNCTION_CALL_START = 4
+    STRING_1 = 5
+    STRING_2 = 6
 
 
 class SynthaxError(Exception):
@@ -40,6 +43,10 @@ class LexicalAnalyzer:
         self.program_filename = program_filename
         self.current_state = TokenConstructions.NEW_TOKEN
 
+    def check_token_not_keyword(self, token, line_number, current_character_number):
+        if token in PROGRAM_KEYWORDS:
+            raise SynthaxError(f"недопустимый токен {token}", line_number, current_character_number)
+
     def analyze(self):
         with open(self.program_filename, 'r') as f:
             lines = f.readlines()
@@ -61,32 +68,59 @@ class LexicalAnalyzer:
                 # обработка строки посимвольно
                 current_token = ''
                 current_token_number = 1
+                # variable for storing strings
+                current_string = ''
+
                 for c in line_without_comments:
                     if current_indent and current_character_number < current_indent:
-                        if c == 'e':
-                            current_indent -= 2 # убираем отступ, чтобы корректно собрать токен
-                            current_token += c
-                            self.set_state(TokenConstructions.ELIF_DECLARATION_START)
-                        else:
-                            pass
+                        # if c == 'e':
+                        #     current_indent -= 2 # убираем отступ, чтобы корректно собрать токен
+                        #     current_token += c
+                        #     self.set_state(TokenConstructions.ELIF_DECLARATION_START)
+                        # else:
+                        pass     # TODO: обработка
                     else:
                         # проверка первого символа
                         if c not in string.ascii_letters and current_character_number == current_indent:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
                         # сборка токена
-                        if c != ' ' and c != '\n':
+                        if self.current_state == TokenConstructions.STRING_1 and c != '\''\
+                                or self.current_state == TokenConstructions.STRING_2 and c != '"':
+                            current_string += c
+                        elif c not in(' ', '\n', '(', ')', '\'', '"', ','):
                             current_token += c
                         elif (c == ' ' or c == '\n') and current_token:
-                            current_token_lower = current_token.lower()
-
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 pass
-                                # if current_token_lower == 'program':
-                                #     if program_declared and current_token_number == 1:
-                                #         raise SynthaxError("недопустимый символ", line_number, current_character_number)
-
+                            elif self.current_state == TokenConstructions.IF_DECLARATION_START:
+                                self.check_token_not_keyword(current_token, line_number, current_character_number)
+                            elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
+                                self.check_token_not_keyword(current_token, line_number, current_character_number)
 
                             current_token_number += 1
-                            current_token = current_token_lower = ''
+                            current_token = ''
+
+                        elif c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
+                            self.set_state(TokenConstructions.FUNCTION_CALL_START)
+                            current_token = ''
+                        elif c == ')' and self.current_state == TokenConstructions.FUNCTION_CALL_START:
+                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            current_token = ''
+                        elif c == '"' and self.current_state != TokenConstructions.STRING_2:
+                            self.current_state = TokenConstructions.STRING_2
+                            current_token = ''
+                        elif c == '"' and self.current_state == TokenConstructions.STRING_2:
+                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            current_token = ''
+                            print(f'string: {current_string}')
+                            current_string = ''
+                        elif c == '\'' and self.current_state != TokenConstructions.STRING_1:
+                            self.current_state = TokenConstructions.STRING_1
+                            current_token = ''
+                        elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
+                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            current_token = ''
+                            print(f'string: {current_string}')
+                            current_string = ''
 
                     current_character_number += 1
