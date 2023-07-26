@@ -2,6 +2,7 @@ import string
 from enum import Enum
 
 TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
+COMMENTS_START_SYMBOL = '#'
 TOKENS_ADD_INDENT = ['if', 'elif']  # TODO: нужно дописать
 PROGRAM_KEYWORDS = ('none',)  # TODO: нужно дописать
 
@@ -52,9 +53,9 @@ class LexicalAnalyzer:
                 current_character_number = 0
                 line_number += 1
                 # очистить строку от комментариев
-                line_without_comments = line.split('#')[0]
+                line_without_comments = line.split(COMMENTS_START_SYMBOL)[0]
                 # если вся строка это комментарий - пропустить строку
-                if line.startswith('#'):
+                if line.startswith(COMMENTS_START_SYMBOL):
                     continue
 
                 # обработка строки посимвольно
