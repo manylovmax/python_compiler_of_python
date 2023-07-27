@@ -14,6 +14,7 @@ class TokenConstructions(Enum):
     FUNCTION_CALL_START = 4
     STRING_1 = 5
     STRING_2 = 6
+    EQUATION = 7
 
 
 class SynthaxError(Exception):
@@ -34,6 +35,7 @@ class LexicalAnalyzer:
     program_filename = None
     current_state = None
     previous_state = None
+    equation_stack = []
 
     def set_state(self, new_state):
         self.previous_state = self.current_state
@@ -87,13 +89,18 @@ class LexicalAnalyzer:
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
-                        elif c not in(' ', '\n', '(', ')', '\'', '"', ','):
+                        elif c not in(' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '='):
                             current_token += c
 
                         if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number) \
                                 and current_token:
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 pass
+                            elif self.current_state == TokenConstructions.EQUATION:
+                                self.equation_stack.append(current_token)
+                                if len(line_without_comments) == current_character_number:
+                                    self.current_state = TokenConstructions.NEW_TOKEN
+                                    print(f'equation stack: {" ".join(self.equation_stack)}')
                             elif self.current_state == TokenConstructions.IF_DECLARATION_START:
                                 self.check_token_not_keyword(current_token, line_number, current_character_number)
                             elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
@@ -126,5 +133,17 @@ class LexicalAnalyzer:
                             current_token = ''
                             print(f'string: "{current_string}"')
                             current_string = ''
+                        elif c == '=' and self.current_state == TokenConstructions.NEW_TOKEN:
+                            current_token_number += 1
+                            current_token = ''
+                            self.set_state(TokenConstructions.EQUATION)
+                            self.equation_stack = []
+                        elif c == '=' and self.current_state == TokenConstructions.EQUATION:
+                            raise SynthaxError(f"недопустимый токен {current_token}", line_number, current_character_number)
+                        elif c == '+' and self.current_state == TokenConstructions.EQUATION:
+                            self.equation_stack.append('+')
+                        elif c == '-' and self.current_state == TokenConstructions.EQUATION:
+                            self.equation_stack.append('-')
+
 
                     current_character_number += 1
