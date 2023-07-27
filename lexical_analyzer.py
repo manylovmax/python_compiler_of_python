@@ -93,7 +93,8 @@ class LexicalAnalyzer:
                         elif c not in TOKEN_SEPARATOR_SYMBOLS:
                             current_token += c
 
-                        if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number) \
+                        if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number
+                            or c in TOKEN_SEPARATOR_SYMBOLS) \
                                 and current_token:
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 pass
@@ -111,7 +112,7 @@ class LexicalAnalyzer:
                             print(f'new token: "{current_token}"')
                             current_token = ''
 
-                        elif c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
+                        if c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
                             self.set_state(TokenConstructions.FUNCTION_CALL_START)
                             print(f'function call: "{current_token}"')
                             current_token = ''
