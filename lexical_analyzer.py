@@ -102,7 +102,7 @@ class LexicalAnalyzer:
                         elif c in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token = c
 
-                        print(repr(f'current token: "{current_token}"'))
+                        print(f'current token: {repr(current_token)}')
                         if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token = ''
 
