@@ -1,4 +1,4 @@
 x = 1
 y = 2.1
-z = 'str'
+z='str'
 a = x + y

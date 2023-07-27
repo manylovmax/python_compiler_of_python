@@ -57,7 +57,7 @@ class LexicalAnalyzer:
             current_character_number = 0
 
             for line in lines:
-                current_character_number = 0
+                current_character_number = 1
                 line_number += 1
                 # очистить строку от комментариев
                 line_without_comments = line.split(COMMENTS_START_SYMBOL)[0]
@@ -89,7 +89,9 @@ class LexicalAnalyzer:
                             current_string += c
                         elif c not in(' ', '\n', '(', ')', '\'', '"', ','):
                             current_token += c
-                        elif (c == ' ' or c == '\n') and current_token:
+
+                        if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number) \
+                                and current_token:
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 pass
                             elif self.current_state == TokenConstructions.IF_DECLARATION_START:
@@ -98,6 +100,7 @@ class LexicalAnalyzer:
                                 self.check_token_not_keyword(current_token, line_number, current_character_number)
 
                             current_token_number += 1
+                            print(f'new token: "{current_token}"')
                             current_token = ''
 
                         elif c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
