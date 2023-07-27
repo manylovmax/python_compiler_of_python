@@ -9,7 +9,7 @@ IDENTIFIER_SEPARATOR_SYMBOLS = (' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '
 
 
 class TokenConstructions(Enum):
-    NEW_TOKEN = 1
+    NEW_IDENTIFIER = 1
     IF_DECLARATION_START = 2
     ELIF_DECLARATION_START = 3
     FUNCTION_CALL_START = 4
@@ -50,11 +50,11 @@ class LexicalAnalyzer:
 
     def __init__(self, program_filename):
         self.program_filename = program_filename
-        self.current_state = TokenConstructions.NEW_TOKEN
+        self.current_state = TokenConstructions.NEW_IDENTIFIER
 
-    def check_token_not_keyword(self, token, line_number, current_character_number):
-        if token in PROGRAM_KEYWORDS:
-            raise SynthaxError(f"недопустимый идентификатор {token}", line_number, current_character_number)
+    def check_identifier_not_keyword(self, identifier, line_number, current_character_number):
+        if identifier in PROGRAM_KEYWORDS:
+            raise SynthaxError(f"недопустимый идентификатор {identifier}", line_number, current_character_number)
 
     def analyze(self):
         with open(self.program_filename, 'r') as f:
@@ -77,6 +77,7 @@ class LexicalAnalyzer:
                 # обработка строки посимвольно
                 # variable for storing strings
                 current_string = ''
+                current_token = ''
 
                 for c in line_without_comments:
                     if current_indent and current_character_number < current_indent:
@@ -94,39 +95,47 @@ class LexicalAnalyzer:
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
+                            current_token += c
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
                             self.current_identifier += c
+                            current_token += c
+                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS:
+                            current_token = c
+
+                        print(repr(f'current token: "{current_token}"'))
+                        if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
+                            current_token = ''
 
                         if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number
                             or c in IDENTIFIER_SEPARATOR_SYMBOLS) \
                                 and self.current_identifier:
-                            if self.current_state == TokenConstructions.NEW_TOKEN:
+                            if self.current_state == TokenConstructions.NEW_IDENTIFIER:
                                 pass
                             elif self.current_state == TokenConstructions.EQUATION:
                                 self.equation_stack.append(self.current_identifier)
                                 if len(line_without_comments) == current_character_number:
-                                    self.current_state = TokenConstructions.NEW_TOKEN
+                                    self.current_state = TokenConstructions.NEW_IDENTIFIER
                                     print(f'equation stack: {" ".join(self.equation_stack)}')
                             elif self.current_state == TokenConstructions.IF_DECLARATION_START:
-                                self.check_token_not_keyword(self.current_identifier, line_number, current_character_number)
+                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
                             elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
-                                self.check_token_not_keyword(self.current_identifier, line_number, current_character_number)
+                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
 
                             self.set_identifier('')
                             print(f'new identifier: "{self.previous_identifier}"')
 
-                        if c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
+                        if c == '(' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.FUNCTION_CALL_START)
                             print(f'function call: "{self.previous_identifier}"')
                             self.set_identifier('')
                         elif c == ')' and self.current_state == TokenConstructions.FUNCTION_CALL_START:
-                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             self.set_identifier('')
                         elif c == '"' and self.current_state != TokenConstructions.STRING_2:
                             self.current_state = TokenConstructions.STRING_2
                             self.set_identifier('')
                         elif c == '"' and self.current_state == TokenConstructions.STRING_2:
-                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             self.set_identifier('')
                             print(f'string: "{current_string}"')
                             current_string = ''
@@ -134,14 +143,14 @@ class LexicalAnalyzer:
                             self.current_state = TokenConstructions.STRING_1
                             self.set_identifier('')
                         elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
-                            self.set_state(TokenConstructions.NEW_TOKEN)
+                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             self.set_identifier('')
                             print(f'string: "{current_string}"')
+                            #print(f'current token: "{current_token}"')
                             current_string = ''
-                        elif c == '=' and self.current_state == TokenConstructions.NEW_TOKEN:
-                            self.set_identifier('')
+                        elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.EQUATION)
-                            self.equation_stack = []
+                            self.equation_stack = [self.previous_identifier, '=']
                         elif c == '=' and self.current_state == TokenConstructions.EQUATION:
                             raise SynthaxError(f"недопустимый токен {self.previous_identifier}", line_number, current_character_number)
                         elif c == '+' and self.current_state == TokenConstructions.EQUATION:
