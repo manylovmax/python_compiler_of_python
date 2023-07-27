@@ -5,6 +5,7 @@ TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
 COMMENTS_START_SYMBOL = '#'
 TOKENS_ADD_INDENT = ['if', 'elif']  # TODO: нужно дописать
 PROGRAM_KEYWORDS = ('none', 'if', 'elif', 'else', 'foreach', 'print')  # TODO: нужно дописать
+TOKEN_SEPARATOR_SYMBOLS = (' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '=')
 
 
 class TokenConstructions(Enum):
@@ -89,7 +90,7 @@ class LexicalAnalyzer:
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
-                        elif c not in(' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '='):
+                        elif c not in TOKEN_SEPARATOR_SYMBOLS:
                             current_token += c
 
                         if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number) \
