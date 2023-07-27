@@ -5,7 +5,7 @@ TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
 COMMENTS_START_SYMBOL = '#'
 TOKENS_ADD_INDENT = ['if', 'elif']  # TODO: нужно дописать
 PROGRAM_KEYWORDS = ('none', 'if', 'elif', 'else', 'foreach', 'print')  # TODO: нужно дописать
-VARIABLE_NAME_SEPARATOR_SYMBOLS = (' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '=')
+IDENTIFIER_SEPARATOR_SYMBOLS = (' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '=')
 
 
 class TokenConstructions(Enum):
@@ -94,11 +94,11 @@ class LexicalAnalyzer:
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
-                        elif c not in VARIABLE_NAME_SEPARATOR_SYMBOLS:
+                        elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
                             self.current_identifier += c
 
                         if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number
-                            or c in VARIABLE_NAME_SEPARATOR_SYMBOLS) \
+                            or c in IDENTIFIER_SEPARATOR_SYMBOLS) \
                                 and self.current_identifier:
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 pass
@@ -113,7 +113,7 @@ class LexicalAnalyzer:
                                 self.check_token_not_keyword(self.current_identifier, line_number, current_character_number)
 
                             self.set_identifier('')
-                            print(f'new token: "{self.previous_identifier}"')
+                            print(f'new identifier: "{self.previous_identifier}"')
 
                         if c == '(' and self.current_state == TokenConstructions.NEW_TOKEN:
                             self.set_state(TokenConstructions.FUNCTION_CALL_START)
