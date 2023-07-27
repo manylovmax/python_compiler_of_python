@@ -54,7 +54,7 @@ class LexicalAnalyzer:
 
     def check_token_not_keyword(self, token, line_number, current_character_number):
         if token in PROGRAM_KEYWORDS:
-            raise SynthaxError(f"недопустимый токен {token}", line_number, current_character_number)
+            raise SynthaxError(f"недопустимый идентификатор {token}", line_number, current_character_number)
 
     def analyze(self):
         with open(self.program_filename, 'r') as f:
