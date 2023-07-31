@@ -39,10 +39,12 @@ class LexicalAnalyzer:
     previous_identifier = ''
     current_identifier = ''
     equation_stack = []
+    state_stack = []
 
     def set_state(self, new_state):
         self.previous_state = self.current_state
         self.current_state = new_state
+        self.state_stack.append(new_state)
 
     def set_identifier(self, new_name):
         self.previous_identifier = self.current_identifier
@@ -51,6 +53,7 @@ class LexicalAnalyzer:
     def __init__(self, program_filename):
         self.program_filename = program_filename
         self.current_state = TokenConstructions.NEW_IDENTIFIER
+        self.state_stack = [self.current_state]
 
     def check_identifier_not_keyword(self, identifier, line_number, current_character_number):
         if identifier in PROGRAM_KEYWORDS:
@@ -102,7 +105,7 @@ class LexicalAnalyzer:
                         elif c in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token = c
 
-                        print(f'current token: {repr(current_token)}')
+                        #print(f'current token: {repr(current_token)}')
                         if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token = ''
 
@@ -114,7 +117,7 @@ class LexicalAnalyzer:
                             elif self.current_state == TokenConstructions.EQUATION:
                                 self.equation_stack.append(self.current_identifier)
                                 if len(line_without_comments) == current_character_number:
-                                    self.current_state = TokenConstructions.NEW_IDENTIFIER
+                                    self.set_state(TokenConstructions.NEW_IDENTIFIER)
                                     print(f'equation stack: {" ".join(self.equation_stack)}')
                             elif self.current_state == TokenConstructions.IF_DECLARATION_START:
                                 self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
@@ -132,7 +135,7 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             self.set_identifier('')
                         elif c == '"' and self.current_state != TokenConstructions.STRING_2:
-                            self.current_state = TokenConstructions.STRING_2
+                            self.set_state(TokenConstructions.STRING_2)
                             self.set_identifier('')
                         elif c == '"' and self.current_state == TokenConstructions.STRING_2:
                             self.set_state(TokenConstructions.NEW_IDENTIFIER)
@@ -140,13 +143,16 @@ class LexicalAnalyzer:
                             print(f'string: "{current_string}"')
                             current_string = ''
                         elif c == '\'' and self.current_state != TokenConstructions.STRING_1:
-                            self.current_state = TokenConstructions.STRING_1
+                            self.set_state(TokenConstructions.STRING_1)
                             self.set_identifier('')
                         elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
-                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             self.set_identifier('')
                             print(f'string: "{current_string}"')
                             #print(f'current token: "{current_token}"')
+                            if self.previous_state == TokenConstructions.EQUATION:
+                                self.equation_stack.append(repr(current_string))
+                                print(f'equation stack: {" ".join(self.equation_stack)}')
+                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
                             current_string = ''
                         elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.EQUATION)
