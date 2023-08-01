@@ -2,10 +2,12 @@ import string
 from enum import Enum
 
 TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
+TOKEN_ALLOWED_FIRST_SYMBOL = string.ascii_letters + '_'
 COMMENTS_START_SYMBOL = '#'
-TOKENS_ADD_INDENT = ['if', 'elif']  # TODO: нужно дописать
-PROGRAM_KEYWORDS = ('none', 'if', 'elif', 'else', 'foreach', 'print')  # TODO: нужно дописать
-IDENTIFIER_SEPARATOR_SYMBOLS = (' ', '\n', '(', ')', '\'', '"', ',', '+', '-', '=')
+TOKENS_ADD_INDENT = {'if', 'elif'}  # TODO: нужно дописать
+PROGRAM_KEYWORDS = {'none', 'if', 'elif', 'else', 'foreach', 'print'}  # TODO: нужно дописать
+EQUATION_SYMBOLS = {'+', '-', '/', '*'}
+IDENTIFIER_SEPARATOR_SYMBOLS = {' ', '\n', '(', ')', '\'', '"', ',', '='} | EQUATION_SYMBOLS
 
 
 class TokenConstructions(Enum):
@@ -16,6 +18,11 @@ class TokenConstructions(Enum):
     STRING_1 = 5
     STRING_2 = 6
     EQUATION = 7
+    END_OF_CONSTRUCTION = 8
+    EQUATION_NEW_IDENTIFIER = 9
+    EQUATION_NEW_OPERATOR = 10
+    FUNCTION_CALL_NEW_ARGUMENT = 11
+    NEW_CONSTANT = 12
 
 
 class SynthaxError(Exception):
@@ -52,8 +59,8 @@ class LexicalAnalyzer:
 
     def __init__(self, program_filename):
         self.program_filename = program_filename
-        self.current_state = TokenConstructions.NEW_IDENTIFIER
-        self.state_stack = [self.current_state]
+        self.current_state = None
+        self.state_stack = []
 
     def check_identifier_not_keyword(self, identifier, line_number, current_character_number):
         if identifier in PROGRAM_KEYWORDS:
@@ -92,77 +99,116 @@ class LexicalAnalyzer:
                         pass     # TODO: обработка
                     else:
                         # проверка первого символа
-                        if c not in string.ascii_letters and current_character_number == current_indent:
+                        if c not in string.ascii_letters and current_character_number - 1 == current_indent:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
                         # сборка токена
+                        if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
+                            if c == '\n' or len(line_without_comments) == current_character_number:
+                                self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                            else:
+                                raise SynthaxError("недопустимый символ", line_number, current_character_number)
+
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
                             current_token += c
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
-                            self.current_identifier += c
                             current_token += c
-                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS:
+                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS - {' ', '\n'}:
+                            self.set_identifier(current_token)
+                            current_token = c
+                        elif self.current_state == TokenConstructions.EQUATION:
                             current_token = c
 
                         #print(f'current token: {repr(current_token)}')
-                        if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
-                            current_token = ''
+                        # if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
+                        #     current_token = ''
 
-                        if (c == ' ' or c == '\n' or len(line_without_comments) == current_character_number
-                            or c in IDENTIFIER_SEPARATOR_SYMBOLS) \
-                                and self.current_identifier:
-                            if self.current_state == TokenConstructions.NEW_IDENTIFIER:
-                                pass
-                            elif self.current_state == TokenConstructions.EQUATION:
-                                self.equation_stack.append(self.current_identifier)
-                                if len(line_without_comments) == current_character_number:
-                                    self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                                    print(f'equation stack: {" ".join(self.equation_stack)}')
-                            elif self.current_state == TokenConstructions.IF_DECLARATION_START:
-                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
-                            elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
-                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
 
-                            self.set_identifier('')
-                            print(f'new identifier: "{self.previous_identifier}"')
-
+                        # переключение автомата на другое состояние (матрица переходов)
                         if c == '(' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.FUNCTION_CALL_START)
                             print(f'function call: "{self.previous_identifier}"')
-                            self.set_identifier('')
-                        elif c == ')' and self.current_state == TokenConstructions.FUNCTION_CALL_START:
-                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                            self.set_identifier('')
-                        elif c == '"' and self.current_state != TokenConstructions.STRING_2:
+                        elif c == ')' and self.current_state in (TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT,
+                                                                 TokenConstructions.FUNCTION_CALL_START):
+                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                        elif c == '"' and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.STRING_2)
-                            self.set_identifier('')
                         elif c == '"' and self.current_state == TokenConstructions.STRING_2:
-                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                            self.set_identifier('')
+                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             print(f'string: "{current_string}"')
                             current_string = ''
-                        elif c == '\'' and self.current_state != TokenConstructions.STRING_1:
+                        elif c == '\'' and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.STRING_1)
-                            self.set_identifier('')
                         elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
-                            self.set_identifier('')
                             print(f'string: "{current_string}"')
                             #print(f'current token: "{current_token}"')
                             if self.previous_state == TokenConstructions.EQUATION:
                                 self.equation_stack.append(repr(current_string))
                                 print(f'equation stack: {" ".join(self.equation_stack)}')
-                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
                         elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.EQUATION)
-                            self.equation_stack = [self.previous_identifier, '=']
+                            self.equation_stack = [self.current_identifier, c]
+                            current_token = ''
                         elif c == '=' and self.current_state == TokenConstructions.EQUATION:
                             raise SynthaxError(f"недопустимый токен {self.previous_identifier}", line_number, current_character_number)
-                        elif c == '+' and self.current_state == TokenConstructions.EQUATION:
-                            self.equation_stack.append('+')
-                        elif c == '-' and self.current_state == TokenConstructions.EQUATION:
-                            self.equation_stack.append('-')
+                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.EQUATION:
+                            self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
+                        elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(c)
+                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                            current_token = ''
+                        elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(c)
+                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                            current_token = ''
+                        elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(c)
+                            current_token = ''
+                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                        elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(c)
+                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                            current_token = ''
+                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state in (TokenConstructions.NEW_IDENTIFIER,
+                                                                                   TokenConstructions.EQUATION_NEW_IDENTIFIER,
+                                                                                   TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT):
+                            pass
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state in (TokenConstructions.EQUATION_NEW_OPERATOR,
+                                                                                   TokenConstructions.EQUATION):
+                            self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
+                        elif self.current_state is None and c in TOKEN_ALLOWED_FIRST_SYMBOL:
+                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                        elif c in (' ', '\n'):
+                            pass
+                        elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
+                            self.set_state(TokenConstructions.NEW_CONSTANT)
+                        else:
+                            raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
 
+                        # проверка на окончание текущей конструкции
+                        if len(line_without_comments) == current_character_number or c in IDENTIFIER_SEPARATOR_SYMBOLS:
+                            if self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                                if self.previous_state == TokenConstructions.NEW_IDENTIFIER:
+                                    raise SynthaxError(f"недопустимый токен {current_token}", line_number, current_character_number)
+                            elif self.current_state in (TokenConstructions.EQUATION_NEW_IDENTIFIER, TokenConstructions.END_OF_CONSTRUCTION):
+                                self.set_identifier(current_token)
+                                self.equation_stack.append(self.current_identifier)
+                                if len(line_without_comments) == current_character_number:
+                                    self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                                    print(f'equation stack: {" ".join(self.equation_stack)}')
+                            elif self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                                if c not in EQUATION_SYMBOLS:
+                                    raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                            elif self.current_state == TokenConstructions.IF_DECLARATION_START:
+                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
+                            elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
+                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
 
                     current_character_number += 1
