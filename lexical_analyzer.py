@@ -88,7 +88,7 @@ class LexicalAnalyzer:
                 # обработка строки посимвольно
                 # variable for storing strings
                 current_string = ''
-                current_token = ''
+                current_identifier = ''
 
                 for c in line_without_comments:
                     if current_indent and current_character_number < current_indent:
@@ -112,16 +112,13 @@ class LexicalAnalyzer:
                         if self.current_state == TokenConstructions.STRING_1 and c != '\''\
                                 or self.current_state == TokenConstructions.STRING_2 and c != '"':
                             current_string += c
-                            current_token += c
+                            current_identifier += c
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
-                            current_token += c
-                            current_token = c
-                        elif self.current_state == TokenConstructions.EQUATION:
-                            current_token = c
+                            current_identifier += c
 
-                        #print(f'current token: {repr(current_token)}')
-                        # if current_token in IDENTIFIER_SEPARATOR_SYMBOLS:
-                        #     current_token = ''
+                        #print(f'current token: {repr(current_identifier)}')
+                        # if current_identifier in IDENTIFIER_SEPARATOR_SYMBOLS:
+                        #     current_identifier = ''
 
 
                         # переключение автомата на другое состояние (матрица переходов)
@@ -148,33 +145,34 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
                         elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
-                            self.set_identifier(current_token)
+                            self.set_identifier(current_identifier)
                             self.set_state(TokenConstructions.EQUATION)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
-                            current_token = ''
+                            current_identifier = ''
                         elif c == '=' and self.current_state == TokenConstructions.EQUATION:
                             raise SynthaxError(f"недопустимый токен {self.previous_identifier}", line_number, current_character_number)
                         elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.set_identifier(current_identifier)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_token = ''
+                            current_identifier = ''
                         elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_token = ''
+                            current_identifier = ''
                         elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
-                            current_token = ''
+                            current_identifier = ''
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_token = ''
+                            current_identifier = ''
                         elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state in (TokenConstructions.NEW_IDENTIFIER,
                                                                                    TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                                                    TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT):
@@ -188,11 +186,11 @@ class LexicalAnalyzer:
                             if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                       TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                       TokenConstructions.NEW_CONSTANT}:
-                                self.equation_stack.append(current_token)
-                                # self.set_identifier(current_token)
+                                self.equation_stack.append(current_identifier)
+                                # self.set_identifier(current_identifier)
                             # elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             #     if self.previous_state == TokenConstructions.NEW_IDENTIFIER:
-                            #         raise SynthaxError(f"недопустимый токен {current_token}", line_number, current_character_number)
+                            #         raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                             # elif self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             #     if c not in EQUATION_SYMBOLS:
                             #         raise SynthaxError("недопустимый символ", line_number, current_character_number)
@@ -204,7 +202,7 @@ class LexicalAnalyzer:
                             print(f'equation stack: {" ".join(self.equation_stack)}')
                             self.set_state(None)
 
-                            current_token = ''
+                            current_identifier = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.NEW_CONSTANT)
                         elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
