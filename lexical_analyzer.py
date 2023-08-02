@@ -23,7 +23,8 @@ class TokenConstructions(Enum):
     EQUATION_NEW_IDENTIFIER = 9
     EQUATION_NEW_OPERATOR = 10
     FUNCTION_CALL_NEW_ARGUMENT = 11
-    NEW_CONSTANT = 12
+    NEW_CONSTANT_INTEGER = 12
+    NEW_CONSTANT_FLOAT = 13
 
 
 class SynthaxError(Exception):
@@ -185,7 +186,8 @@ class LexicalAnalyzer:
                         elif c == '\n' or len(line_without_comments) == current_character_number:
                             if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                       TokenConstructions.EQUATION_NEW_IDENTIFIER,
-                                                      TokenConstructions.NEW_CONSTANT}:
+                                                      TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
                                 self.equation_stack.append(current_identifier)
                                 # self.set_identifier(current_identifier)
                             # elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
@@ -204,12 +206,16 @@ class LexicalAnalyzer:
 
                             current_identifier = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
-                            self.set_state(TokenConstructions.NEW_CONSTANT)
+                            self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
                         elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
                             pass
                         elif c != '"' and self.current_state == TokenConstructions.STRING_2:
                             pass
                         elif c == ' ':
+                            pass
+                        elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                            self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
                             pass
                         else:
                             raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
