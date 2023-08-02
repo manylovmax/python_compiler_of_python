@@ -8,6 +8,7 @@ TOKENS_ADD_INDENT = {'if', 'elif'}  # TODO: нужно дописать
 PROGRAM_KEYWORDS = {'none', 'if', 'elif', 'else', 'foreach', 'print'}  # TODO: нужно дописать
 EQUATION_SYMBOLS = {'+', '-', '/', '*'}
 IDENTIFIER_SEPARATOR_SYMBOLS = {' ', '\n', '(', ')', '\'', '"', ',', '='} | EQUATION_SYMBOLS
+IDENTIFIER_SEPARATOR_SYMBOLS_PARTIAL = IDENTIFIER_SEPARATOR_SYMBOLS - {' ', '\n'}
 
 
 class TokenConstructions(Enum):
@@ -104,7 +105,7 @@ class LexicalAnalyzer:
                         # сборка токена
                         if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
                             if c == '\n' or len(line_without_comments) == current_character_number:
-                                self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                                pass
                             else:
                                 raise SynthaxError("недопустимый символ", line_number, current_character_number)
 
@@ -114,7 +115,9 @@ class LexicalAnalyzer:
                             current_token += c
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token += c
-                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS - {' ', '\n'}:
+                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS_PARTIAL:
+                            if self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                                self.set_identifier(current_token)
                             current_token = c
                         elif self.current_state == TokenConstructions.EQUATION:
                             current_token = c
@@ -134,21 +137,22 @@ class LexicalAnalyzer:
                         elif c == '"' and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.STRING_2)
                         elif c == '"' and self.current_state == TokenConstructions.STRING_2:
-                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             print(f'string: "{current_string}"')
+                            if self.previous_state == TokenConstructions.EQUATION:
+                                self.equation_stack.append(repr(current_string))
+                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
                         elif c == '\'' and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.STRING_1)
                         elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
                             print(f'string: "{current_string}"')
-                            #print(f'current token: "{current_token}"')
                             if self.previous_state == TokenConstructions.EQUATION:
                                 self.equation_stack.append(repr(current_string))
-                                print(f'equation stack: {" ".join(self.equation_stack)}')
                             self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
                         elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
                             self.set_state(TokenConstructions.EQUATION)
+                            self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             current_token = ''
                         elif c == '=' and self.current_state == TokenConstructions.EQUATION:
@@ -201,10 +205,15 @@ class LexicalAnalyzer:
 
                             if c == '\n' or len(line_without_comments) == current_character_number:
                                 print(f'equation stack: {" ".join(self.equation_stack)}')
+                                self.set_state(None)
 
                             current_token = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.NEW_CONSTANT)
+                        elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
+                            pass
+                        elif c != '"' and self.current_state == TokenConstructions.STRING_2:
+                            pass
                         else:
                             raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
 
