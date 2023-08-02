@@ -160,16 +160,20 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.set_identifier(current_identifier)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.set_identifier(current_identifier)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
+                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                            self.set_identifier(current_identifier)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
