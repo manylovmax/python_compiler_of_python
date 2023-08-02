@@ -115,9 +115,6 @@ class LexicalAnalyzer:
                             current_token += c
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_token += c
-                        elif c in IDENTIFIER_SEPARATOR_SYMBOLS_PARTIAL:
-                            if self.current_state == TokenConstructions.NEW_IDENTIFIER:
-                                self.set_identifier(current_token)
                             current_token = c
                         elif self.current_state == TokenConstructions.EQUATION:
                             current_token = c
@@ -151,6 +148,7 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
                         elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                            self.set_identifier(current_token)
                             self.set_state(TokenConstructions.EQUATION)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
@@ -186,7 +184,7 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
                         elif self.current_state is None and c in TOKEN_ALLOWED_FIRST_SYMBOL:
                             self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                        elif c in (' ', '\n') or len(line_without_comments) == current_character_number:
+                        elif c == '\n' or len(line_without_comments) == current_character_number:
                             if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                       TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                       TokenConstructions.NEW_CONSTANT}:
@@ -198,14 +196,13 @@ class LexicalAnalyzer:
                             # elif self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             #     if c not in EQUATION_SYMBOLS:
                             #         raise SynthaxError("недопустимый символ", line_number, current_character_number)
-                            elif self.current_state == TokenConstructions.IF_DECLARATION_START:
-                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
-                            elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
-                                self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
+                            # elif self.current_state == TokenConstructions.IF_DECLARATION_START:
+                            #     self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
+                            # elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
+                            #     self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
 
-                            if c == '\n' or len(line_without_comments) == current_character_number:
-                                print(f'equation stack: {" ".join(self.equation_stack)}')
-                                self.set_state(None)
+                            print(f'equation stack: {" ".join(self.equation_stack)}')
+                            self.set_state(None)
 
                             current_token = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
@@ -213,6 +210,8 @@ class LexicalAnalyzer:
                         elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
                             pass
                         elif c != '"' and self.current_state == TokenConstructions.STRING_2:
+                            pass
+                        elif c == ' ':
                             pass
                         else:
                             raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
