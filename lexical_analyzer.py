@@ -26,6 +26,7 @@ class TokenConstructions(Enum):
     FUNCTION_CALL_NEW_ARGUMENT = 11
     NEW_CONSTANT_INTEGER = 12
     NEW_CONSTANT_FLOAT = 13
+    END_OF_TOKEN = 14
 
 
 class SynthaxError(Exception):
@@ -125,6 +126,7 @@ class LexicalAnalyzer:
                         elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
                             current_identifier += c
 
+
                         #print(f'current token: {repr(current_identifier)}')
                         # if current_identifier in IDENTIFIER_SEPARATOR_SYMBOLS:
                         #     current_identifier = ''
@@ -221,7 +223,7 @@ class LexicalAnalyzer:
                                                       TokenConstructions.NEW_CONSTANT_FLOAT}:
                                 self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             else:
-                                pass
+                                self.set_state(TokenConstructions.END_OF_TOKEN)
                         elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
                             self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
                         elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
