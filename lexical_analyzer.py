@@ -187,7 +187,33 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
                         elif self.current_state is None and c in TOKEN_ALLOWED_FIRST_SYMBOL:
                             self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                        elif c == '\n' or len(line_without_comments) == current_character_number:
+                        elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
+                            self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                            pass
+                        elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
+                            pass
+                        elif c != '"' and self.current_state == TokenConstructions.STRING_2:
+                            pass
+                        elif c in ' ':
+                            if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
+                                self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                            else:
+                                pass
+                        elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                            self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
+                            pass
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
+                            pass
+                        elif c == '\n':
+                            pass  # обработка ниже
+                        else:
+                            raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
+
+                        # обработка последнего символа должна быть вынесена в параллельный блок
+                        if c == '\n' or len(line_without_comments) == current_character_number:
                             if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                       TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                       TokenConstructions.NEW_CONSTANT_INTEGER,
@@ -211,27 +237,5 @@ class LexicalAnalyzer:
                             self.set_state(None)
 
                             current_identifier = ''
-                        elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
-                            self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
-                            pass
-                        elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
-                            pass
-                        elif c != '"' and self.current_state == TokenConstructions.STRING_2:
-                            pass
-                        elif c == ' ':
-                            if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
-                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
-                                self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                            else:
-                                pass
-                        elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
-                            self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
-                            pass
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
-                            pass
-                        else:
-                            raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
 
                     current_character_number += 1
