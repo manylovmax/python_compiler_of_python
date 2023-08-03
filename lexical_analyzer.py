@@ -211,14 +211,22 @@ class LexicalAnalyzer:
                             current_identifier = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                            pass
                         elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
                             pass
                         elif c != '"' and self.current_state == TokenConstructions.STRING_2:
                             pass
                         elif c == ' ':
-                            pass
+                            if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
+                                self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                            else:
+                                pass
                         elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
                             self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
+                            pass
                         elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
                             pass
                         else:
