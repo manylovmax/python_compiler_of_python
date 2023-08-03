@@ -69,8 +69,13 @@ class LexicalAnalyzer:
         if identifier in PROGRAM_KEYWORDS:
             raise SynthaxError(f"недопустимый идентификатор {identifier}", line_number, current_character_number)
 
+    def check_identifier_declared(self, identifier, line_number, current_character_number):
+        if identifier not in self.identifier_table.keys():
+            raise SynthaxError(f"недопустимый необъявленный идентификатор {identifier}", line_number,
+                               current_character_number)
+
     def analyze(self):
-        with open(self.program_filename, 'r') as f:
+        with (open(self.program_filename, 'r') as f):
             lines = f.readlines()
 
             current_indent = 0
@@ -156,18 +161,21 @@ class LexicalAnalyzer:
                             raise SynthaxError(f"недопустимый токен {self.previous_identifier}", line_number, current_character_number)
                         elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.set_identifier(current_identifier)
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.set_identifier(current_identifier)
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.set_identifier(current_identifier)
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
@@ -175,6 +183,7 @@ class LexicalAnalyzer:
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                             self.set_identifier(current_identifier)
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.equation_stack.append(self.current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
@@ -219,6 +228,8 @@ class LexicalAnalyzer:
                                                       TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                       TokenConstructions.NEW_CONSTANT_INTEGER,
                                                       TokenConstructions.NEW_CONSTANT_FLOAT}:
+                                if self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                                    self.check_identifier_declared(current_identifier, line_number, current_character_number)
                                 self.equation_stack.append(current_identifier)
                                 # self.set_identifier(current_identifier)
                             # elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
@@ -236,7 +247,7 @@ class LexicalAnalyzer:
                                                       TokenConstructions.NEW_CONSTANT_FLOAT,
                                                       TokenConstructions.END_OF_CONSTRUCTION}  \
                                 and len(self.equation_stack):
-                                print(f'equation stack: {" ".join(self.equation_stack)}')
+                                # print(f'equation stack: {" ".join(self.equation_stack)}')
                                 self.identifier_table[self.equation_stack[0]] = self.equation_stack[2:]
                             self.set_state(None)
 
