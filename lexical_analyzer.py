@@ -6,10 +6,11 @@ TOKEN_ALLOWED_FIRST_SYMBOL = string.ascii_letters + '_'
 COMMENTS_START_SYMBOL = '#'
 TOKENS_ADD_INDENT = {'if', 'elif'}  # TODO: нужно дописать
 LOGICAL_VALUES = {'True', 'False'}
-PROGRAM_KEYWORDS = {'None', 'if', 'elif', 'else', 'foreach', 'print', 'pass', 'not'} | LOGICAL_VALUES  # TODO: нужно дописать
+PROGRAM_KEYWORDS = {'None', 'if', 'elif', 'else', 'for', 'print', 'pass', 'not'} | LOGICAL_VALUES  # TODO: нужно дописать
 EQUATION_SYMBOLS = {'+', '-', '/', '*'}
-IDENTIFIER_SEPARATOR_SYMBOLS = {' ', '\n', '(', ')', '\'', '"', ',', '='} | EQUATION_SYMBOLS
+IDENTIFIER_SEPARATOR_SYMBOLS = {' ', '\n', '(', ')', '\'', '"', ',', '=', ':'} | EQUATION_SYMBOLS
 IDENTIFIER_SEPARATOR_SYMBOLS_PARTIAL = IDENTIFIER_SEPARATOR_SYMBOLS - {' ', '\n'}
+INDENTATION_NUMBER_OF_WHITESPACES = 4
 
 
 class TokenConstructions(Enum):
@@ -27,6 +28,9 @@ class TokenConstructions(Enum):
     NEW_CONSTANT_INTEGER = 12
     NEW_CONSTANT_FLOAT = 13
     END_OF_IDENTIFIER = 14
+    IF_DECLARATION_IDENTIFIER = 15
+    IF_DECLARATION_IDENTIFIER_END = 16
+    IF_DECLARATION_INSTRUCTIONS = 17
 
 
 class SynthaxError(Exception):
@@ -48,7 +52,7 @@ class LexicalAnalyzer:
     current_state = None
     previous_state = None
     previous_identifier = None
-    current_identifier = None
+    last_identifier = None
     equation_stack = []
     state_stack = []
     identifier_table = dict()
@@ -59,8 +63,8 @@ class LexicalAnalyzer:
         self.state_stack.append(new_state)
 
     def set_identifier(self, new_name):
-        self.previous_identifier = self.current_identifier
-        self.current_identifier = new_name
+        self.previous_identifier = self.last_identifier
+        self.last_identifier = new_name
 
     def __init__(self, program_filename):
         self.program_filename = program_filename
@@ -110,7 +114,8 @@ class LexicalAnalyzer:
                         pass     # TODO: обработка
                     else:
                         # проверка первого символа
-                        if c not in string.ascii_letters and current_character_number - 1 == current_indent:
+                        if c not in string.ascii_letters \
+                                and current_character_number - 1 == current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
                         # сборка токена
                         if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
@@ -157,48 +162,53 @@ class LexicalAnalyzer:
                             current_string = ''
                         elif c == '=' and self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                                  TokenConstructions.END_OF_IDENTIFIER}:
-                            self.set_identifier(current_identifier)
-                            self.check_identifier_not_keyword(current_identifier, line_number, current_character_number)
+                            if current_identifier:
+                                self.set_identifier(current_identifier)
+                            self.check_identifier_not_keyword(self.last_identifier, line_number, current_character_number)
                             self.set_state(TokenConstructions.EQUATION)
-                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(self.last_identifier)
                             self.equation_stack.append(c)
                             current_identifier = ''
                         elif c == '=' and self.current_state == TokenConstructions.EQUATION:
-                            raise SynthaxError(f"недопустимый токен {self.previous_identifier}", line_number, current_character_number)
+                            raise SynthaxError(f"недопустимый токен {c}", line_number, current_character_number)
                         elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            self.set_identifier(current_identifier)
-                            if self.current_identifier in LOGICAL_VALUES:
+                            if current_identifier:
+                                self.set_identifier(current_identifier)
+                            if current_identifier in LOGICAL_VALUES:
                                 raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            self.set_identifier(current_identifier)
-                            if self.current_identifier in LOGICAL_VALUES:
+                            if current_identifier:
+                                self.set_identifier(current_identifier)
+                            if current_identifier in LOGICAL_VALUES:
                                 raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                         elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            self.set_identifier(current_identifier)
-                            if self.current_identifier in LOGICAL_VALUES:
+                            if current_identifier:
+                                self.set_identifier(current_identifier)
+                            if current_identifier in LOGICAL_VALUES:
                                 raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            self.set_identifier(current_identifier)
-                            if self.current_identifier in LOGICAL_VALUES:
+                            if current_identifier:
+                                self.set_identifier(current_identifier)
+                            if current_identifier in LOGICAL_VALUES:
                                 raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.equation_stack.append(self.current_identifier)
+                            self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
                             self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                             current_identifier = ''
@@ -223,9 +233,28 @@ class LexicalAnalyzer:
                             if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
                                                       TokenConstructions.NEW_CONSTANT_FLOAT}:
                                 self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                            else:
-                                if self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                            elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                                if current_identifier == 'if':
+                                    self.set_state(TokenConstructions.IF_DECLARATION_START)
+                                else:
                                     self.set_state(TokenConstructions.END_OF_IDENTIFIER)
+                                    self.set_identifier(current_identifier)
+                            elif self.current_state == TokenConstructions.IF_DECLARATION_IDENTIFIER:
+                                self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER_END)
+
+                            current_identifier = ''
+
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_START:
+                            self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER) # обработка выражения
+                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_IDENTIFIER_END:
+                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number,
+                                               current_character_number)
+                        elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_IDENTIFIER_END,
+                                                                 TokenConstructions.IF_DECLARATION_IDENTIFIER}:
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                            self.set_state(TokenConstructions.IF_DECLARATION_INSTRUCTIONS)
+                            open_indent_blocks.append('if')
+                            current_indent += 1
                         elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
                             self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
                         elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
