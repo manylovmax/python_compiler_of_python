@@ -204,14 +204,17 @@ class LexicalAnalyzer:
                             #     self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
                             # elif self.current_state == TokenConstructions.FUNCTION_CALL_START:
                             #     self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
-
-                            print(f'equation stack: {" ".join(self.equation_stack)}')
+                            if self.current_state in {TokenConstructions.EQUATION_NEW_IDENTIFIER,
+                                                      TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
+                                print(f'equation stack: {" ".join(self.equation_stack)}')
                             self.set_state(None)
 
                             current_identifier = ''
                         elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
                             self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER and \
+                            self.previous_state == TokenConstructions.EQUATION:
                             pass
                         elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
                             pass
