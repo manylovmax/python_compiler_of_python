@@ -26,7 +26,7 @@ class TokenConstructions(Enum):
     FUNCTION_CALL_NEW_ARGUMENT = 11
     NEW_CONSTANT_INTEGER = 12
     NEW_CONSTANT_FLOAT = 13
-    END_OF_TOKEN = 14
+    END_OF_IDENTIFIER = 14
 
 
 class SynthaxError(Exception):
@@ -155,7 +155,8 @@ class LexicalAnalyzer:
                                 self.equation_stack.append(repr(current_string))
                             self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             current_string = ''
-                        elif c == '=' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                        elif c == '=' and self.current_state in {TokenConstructions.NEW_IDENTIFIER,
+                                                                 TokenConstructions.END_OF_IDENTIFIER}:
                             self.set_identifier(current_identifier)
                             self.check_identifier_not_keyword(current_identifier, line_number, current_character_number)
                             self.set_state(TokenConstructions.EQUATION)
@@ -223,7 +224,8 @@ class LexicalAnalyzer:
                                                       TokenConstructions.NEW_CONSTANT_FLOAT}:
                                 self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             else:
-                                self.set_state(TokenConstructions.END_OF_TOKEN)
+                                if self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                                    self.set_state(TokenConstructions.END_OF_IDENTIFIER)
                         elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
                             self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
                         elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
