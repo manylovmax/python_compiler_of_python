@@ -237,5 +237,6 @@ class LexicalAnalyzer:
                             self.set_state(None)
 
                             current_identifier = ''
+                            self.equation_stack.clear()
 
                     current_character_number += 1
