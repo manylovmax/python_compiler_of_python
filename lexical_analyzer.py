@@ -49,6 +49,7 @@ class LexicalAnalyzer:
     current_identifier = None
     equation_stack = []
     state_stack = []
+    identifier_table = dict()
 
     def set_state(self, new_state):
         self.previous_state = self.current_state
@@ -232,11 +233,19 @@ class LexicalAnalyzer:
                             #     self.check_identifier_not_keyword(self.current_identifier, line_number, current_character_number)
                             if self.current_state in {TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                       TokenConstructions.NEW_CONSTANT_INTEGER,
-                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
+                                                      TokenConstructions.NEW_CONSTANT_FLOAT,
+                                                      TokenConstructions.END_OF_CONSTRUCTION}  \
+                                and len(self.equation_stack):
                                 print(f'equation stack: {" ".join(self.equation_stack)}')
+                                self.identifier_table[self.equation_stack[0]] = self.equation_stack[2:]
                             self.set_state(None)
 
                             current_identifier = ''
                             self.equation_stack.clear()
 
                     current_character_number += 1
+
+            print("------- identifier table -------")
+            for k, v in self.identifier_table.items():
+                print(f"{k} = {v}")
+            print("------- ---------------- -------")
