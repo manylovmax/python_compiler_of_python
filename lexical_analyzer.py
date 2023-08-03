@@ -31,6 +31,7 @@ class TokenConstructions(Enum):
     IF_DECLARATION_IDENTIFIER = 15
     IF_DECLARATION_IDENTIFIER_END = 16
     IF_DECLARATION_INSTRUCTIONS = 17
+    ELSE_DECLARATION = 18
 
 
 class SynthaxError(Exception):
@@ -105,17 +106,16 @@ class LexicalAnalyzer:
                 current_identifier = ''
 
                 for c in line_without_comments:
-                    if current_indent and current_character_number < current_indent:
-                        # if c == 'e':
-                        #     current_indent -= 2 # убираем отступ, чтобы корректно собрать токен
-                        #     current_identifier += c
-                        #     self.set_state(TokenConstructions.ELIF_DECLARATION_START)
-                        # else:
-                        pass     # TODO: обработка
+                    if current_indent and current_character_number <= current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
+                        if c != ' ' and c != '\n' and c != 'e':
+                            raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                        else:
+                            if c == 'e':
+                                self.set_state(TokenConstructions.ELIF_DECLARATION_START)
                     else:
                         # проверка первого символа
-                        if c not in string.ascii_letters \
-                                and current_character_number - 1 == current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
+                        if c not in TOKEN_ALLOWED_FIRST_SYMBOL \
+                                and current_character_number == current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
                         # сборка токена
                         if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
@@ -236,6 +236,8 @@ class LexicalAnalyzer:
                             elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
                                 if current_identifier == 'if':
                                     self.set_state(TokenConstructions.IF_DECLARATION_START)
+                                elif current_identifier == 'elif':
+                                    self.set_state(TokenConstructions.ELIF_DECLARATION_START)
                                 else:
                                     self.set_state(TokenConstructions.END_OF_IDENTIFIER)
                                     self.set_identifier(current_identifier)
@@ -246,11 +248,13 @@ class LexicalAnalyzer:
 
                         elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_START:
                             self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER) # обработка выражения
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_START:
+                            self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER)
                         elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_IDENTIFIER_END:
                             raise SynthaxError(f"недопустимый токен {current_identifier}", line_number,
                                                current_character_number)
                         elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_IDENTIFIER_END,
-                                                                 TokenConstructions.IF_DECLARATION_IDENTIFIER}:
+                                                                 TokenConstructions.IF_DECLARATION_IDENTIFIER,}:
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.set_state(TokenConstructions.IF_DECLARATION_INSTRUCTIONS)
                             open_indent_blocks.append('if')
