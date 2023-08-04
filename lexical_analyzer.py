@@ -15,8 +15,6 @@ INDENTATION_NUMBER_OF_WHITESPACES = 4
 
 class TokenConstructions(Enum):
     NEW_IDENTIFIER = 1
-    IF_DECLARATION_START = 2
-    ELIF_DECLARATION_START = 3
     FUNCTION_CALL_START = 4
     STRING_1 = 5
     STRING_2 = 6
@@ -28,10 +26,18 @@ class TokenConstructions(Enum):
     NEW_CONSTANT_INTEGER = 12
     NEW_CONSTANT_FLOAT = 13
     END_OF_IDENTIFIER = 14
-    IF_DECLARATION_IDENTIFIER = 15
-    IF_DECLARATION_IDENTIFIER_END = 16
+    IF_DECLARATION_START = 2
+    IF_DECLARATION_EXPRESSION_IDENTIFIER = 15
+    IF_DECLARATION_EXPRESSION_IDENTIFIER_END = 16
     IF_DECLARATION_INSTRUCTIONS = 17
+    IF_DECLARATION_EXPRESSION = 23
     ELSE_DECLARATION = 18
+    ELIF_DECLARATION_START = 3
+    ELIF_DECLARATION_EXPRESSION_IDENTIFIER = 19
+    ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END = 20
+    ELIF_DECLARATION_INSTRUCTIONS = 21
+    ELIF_DECLARATION_EXPRESSION = 22
+    ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR = 23
 
 
 class SynthaxError(Exception):
@@ -112,6 +118,8 @@ class LexicalAnalyzer:
                         else:
                             if c == 'e':
                                 self.set_state(TokenConstructions.ELIF_DECLARATION_START)
+                                current_indent -= 1
+                                current_identifier += c
                     else:
                         # проверка первого символа
                         if c not in TOKEN_ALLOWED_FIRST_SYMBOL \
@@ -235,29 +243,46 @@ class LexicalAnalyzer:
                                 self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                             elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
                                 if current_identifier == 'if':
-                                    self.set_state(TokenConstructions.IF_DECLARATION_START)
-                                elif current_identifier == 'elif':
-                                    self.set_state(TokenConstructions.ELIF_DECLARATION_START)
+                                    self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
                                 else:
                                     self.set_state(TokenConstructions.END_OF_IDENTIFIER)
                                     self.set_identifier(current_identifier)
-                            elif self.current_state == TokenConstructions.IF_DECLARATION_IDENTIFIER:
-                                self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER_END)
+                            elif self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
+                                if current_identifier == 'not':
+                                    self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR)
+                                else:
+                                    self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END)
+                            elif self.current_state == TokenConstructions.ELIF_DECLARATION_START:
+                                self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION)
 
                             current_identifier = ''
 
                         elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_START:
-                            self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER) # обработка выражения
+                            self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION:
+                            self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER)
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR:
+                            self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
+                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER:
+                            pass
                         elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_START:
-                            self.set_state(TokenConstructions.IF_DECLARATION_IDENTIFIER)
-                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_IDENTIFIER_END:
-                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number,
-                                               current_character_number)
-                        elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_IDENTIFIER_END,
-                                                                 TokenConstructions.IF_DECLARATION_IDENTIFIER,}:
+                            pass
+                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION:
+                            self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
+                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
+                            pass
+                        elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER_END,
+                                                                 TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER,}:
                             self.check_identifier_declared(current_identifier, line_number, current_character_number)
                             self.set_state(TokenConstructions.IF_DECLARATION_INSTRUCTIONS)
                             open_indent_blocks.append('if')
+                            current_indent += 1
+                        elif c == ':' and self.current_state in {TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END,
+                                                                 TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER,}:
+                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                            self.set_state(TokenConstructions.ELIF_DECLARATION_INSTRUCTIONS)
+                            open_indent_blocks.pop()
+                            open_indent_blocks.append('elif')
                             current_indent += 1
                         elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
                             self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
