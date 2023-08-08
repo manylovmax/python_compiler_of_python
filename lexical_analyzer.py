@@ -63,6 +63,8 @@ class LexicalAnalyzer:
     equation_stack = []
     state_stack = []
     identifier_table = dict()
+    is_logical_expression = False
+    is_indent_obliged = False
 
     def set_state(self, new_state):
         self.previous_state = self.current_state
@@ -95,7 +97,6 @@ class LexicalAnalyzer:
             open_indent_blocks = []
             line_number = 0
             current_character_number = 0
-            is_logical_equation = False
 
             for line in lines:
                 current_character_number = 1
@@ -112,208 +113,237 @@ class LexicalAnalyzer:
                 current_identifier = ''
 
                 for c in line_without_comments:
+                    # проверка на правильность расположения отступов (начала строки)
                     if current_indent and current_character_number <= current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
-                        if c != ' ' and c != '\n' and c != 'e':
+                        if c not in {' ', '\n'} and self.is_indent_obliged:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                        elif c not in {' ', '\n', 'e'}:
+                            if current_character_number < (current_indent - 1) * INDENTATION_NUMBER_OF_WHITESPACES:
+                                raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                            else:
+                                current_indent -= 1
                         else:
                             if c == 'e':
                                 self.set_state(TokenConstructions.ELIF_DECLARATION_START)
                                 current_indent -= 1
                                 current_identifier += c
-                    else:
-                        # проверка первого символа
-                        if c not in TOKEN_ALLOWED_FIRST_SYMBOL \
-                                and current_character_number == current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
+
+                            current_character_number += 1
+                            continue
+
+                    # проверка первого символа
+                    if c not in TOKEN_ALLOWED_FIRST_SYMBOL \
+                            and current_character_number == current_indent * INDENTATION_NUMBER_OF_WHITESPACES:
+                        raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                    # сборка токена
+                    if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
+                        if c == '\n' or len(line_without_comments) == current_character_number:
+                            pass
+                        else:
                             raise SynthaxError("недопустимый символ", line_number, current_character_number)
-                        # сборка токена
-                        if self.current_state == TokenConstructions.END_OF_CONSTRUCTION:
-                            if c == '\n' or len(line_without_comments) == current_character_number:
-                                pass
-                            else:
-                                raise SynthaxError("недопустимый символ", line_number, current_character_number)
 
-                        if self.current_state == TokenConstructions.STRING_1 and c != '\''\
-                                or self.current_state == TokenConstructions.STRING_2 and c != '"':
-                            current_string += c
-                            current_identifier += c
-                        elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
-                            current_identifier += c
+                    if self.current_state == TokenConstructions.STRING_1 and c != '\''\
+                            or self.current_state == TokenConstructions.STRING_2 and c != '"':
+                        current_string += c
+                        current_identifier += c
+                    elif c not in IDENTIFIER_SEPARATOR_SYMBOLS:
+                        current_identifier += c
 
 
-                        #print(f'current token: {repr(current_identifier)}')
-                        # if current_identifier in IDENTIFIER_SEPARATOR_SYMBOLS:
-                        #     current_identifier = ''
+                    #print(f'current token: {repr(current_identifier)}')
+                    # if current_identifier in IDENTIFIER_SEPARATOR_SYMBOLS:
+                    #     current_identifier = ''
 
 
-                        # переключение автомата на другое состояние (матрица переходов)
-                        if c == '(' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
-                            self.set_state(TokenConstructions.FUNCTION_CALL_START)
-                            print(f'function call: "{self.previous_identifier}"')
-                        elif c == ')' and self.current_state in (TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT,
-                                                                 TokenConstructions.FUNCTION_CALL_START):
-                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                        elif c == '"' and self.current_state == TokenConstructions.EQUATION:
-                            self.set_state(TokenConstructions.STRING_2)
-                        elif c == '"' and self.current_state == TokenConstructions.STRING_2:
-                            print(f'string: "{current_string}"')
-                            if self.previous_state == TokenConstructions.EQUATION:
+                    # переключение автомата на другое состояние (матрица переходов)
+                    if c == '(' and self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                        self.set_state(TokenConstructions.FUNCTION_CALL_START)
+                        print(f'function call: "{self.previous_identifier}"')
+                    elif c == ')' and self.current_state in (TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT,
+                                                             TokenConstructions.FUNCTION_CALL_START):
+                        self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                    elif c == '"' and self.current_state == TokenConstructions.EQUATION:
+                        self.set_state(TokenConstructions.STRING_2)
+                    elif c == '"' and self.current_state == TokenConstructions.STRING_2:
+                        print(f'string: "{current_string}"')
+                        if self.previous_state == TokenConstructions.EQUATION:
+                            if not self.is_logical_expression:
                                 self.equation_stack.append(repr(current_string))
-                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                            current_string = ''
-                        elif c == '\'' and self.current_state == TokenConstructions.EQUATION:
-                            self.set_state(TokenConstructions.STRING_1)
-                        elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
-                            print(f'string: "{current_string}"')
-                            if self.previous_state == TokenConstructions.EQUATION:
+                        self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                        current_string = ''
+                    elif c == '\'' and self.current_state == TokenConstructions.EQUATION:
+                        self.set_state(TokenConstructions.STRING_1)
+                    elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
+                        print(f'string: "{current_string}"')
+                        if self.previous_state == TokenConstructions.EQUATION:
+                            if not self.is_logical_expression:
                                 self.equation_stack.append(repr(current_string))
-                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                            current_string = ''
-                        elif c == '=' and self.current_state in {TokenConstructions.NEW_IDENTIFIER,
-                                                                 TokenConstructions.END_OF_IDENTIFIER}:
-                            if current_identifier:
-                                self.set_identifier(current_identifier)
-                            self.check_identifier_not_keyword(self.last_identifier, line_number, current_character_number)
-                            self.set_state(TokenConstructions.EQUATION)
+                        self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                        current_string = ''
+                    elif c == '=' and self.current_state in {TokenConstructions.NEW_IDENTIFIER,
+                                                             TokenConstructions.END_OF_IDENTIFIER}:
+                        if current_identifier:
+                            self.set_identifier(current_identifier)
+                        self.check_identifier_not_keyword(self.last_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.EQUATION)
+                        if not self.is_logical_expression:
                             self.equation_stack.append(self.last_identifier)
                             self.equation_stack.append(c)
-                            current_identifier = ''
-                        elif c == '=' and self.current_state == TokenConstructions.EQUATION:
-                            raise SynthaxError(f"недопустимый токен {c}", line_number, current_character_number)
-                        elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            if current_identifier:
-                                self.set_identifier(current_identifier)
-                            if current_identifier in LOGICAL_VALUES:
-                                raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        current_identifier = ''
+                    elif c == '=' and self.current_state == TokenConstructions.EQUATION:
+                        raise SynthaxError(f"недопустимый токен {c}", line_number, current_character_number)
+                    elif c == '+' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                        if current_identifier:
+                            self.set_identifier(current_identifier)
+                        if current_identifier in LOGICAL_VALUES:
+                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        if not self.is_logical_expression:
                             self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
-                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_identifier = ''
-                        elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            if current_identifier:
-                                self.set_identifier(current_identifier)
-                            if current_identifier in LOGICAL_VALUES:
-                                raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                        current_identifier = ''
+                    elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                        if current_identifier:
+                            self.set_identifier(current_identifier)
+                        if current_identifier in LOGICAL_VALUES:
+                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        if not self.is_logical_expression:
                             self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
-                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_identifier = ''
-                        elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            if current_identifier:
-                                self.set_identifier(current_identifier)
-                            if current_identifier in LOGICAL_VALUES:
-                                raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                        current_identifier = ''
+                    elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                        if current_identifier:
+                            self.set_identifier(current_identifier)
+                        if current_identifier in LOGICAL_VALUES:
+                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        if not self.is_logical_expression:
                             self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
-                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_identifier = ''
-                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                        elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                            if current_identifier:
-                                self.set_identifier(current_identifier)
-                            if current_identifier in LOGICAL_VALUES:
-                                raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                        current_identifier = ''
+                        self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                    elif c == '/' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                        if current_identifier:
+                            self.set_identifier(current_identifier)
+                        if current_identifier in LOGICAL_VALUES:
+                            raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        if not self.is_logical_expression:
                             self.equation_stack.append(current_identifier)
                             self.equation_stack.append(c)
-                            self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
-                            current_identifier = ''
-                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state in (TokenConstructions.NEW_IDENTIFIER,
-                                                                                   TokenConstructions.EQUATION_NEW_IDENTIFIER,
-                                                                                   TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT):
-                            pass
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state in {TokenConstructions.EQUATION_NEW_OPERATOR,
-                                                                                   TokenConstructions.EQUATION}:
-                            self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
-                        elif self.current_state is None and c in TOKEN_ALLOWED_FIRST_SYMBOL:
-                            self.set_state(TokenConstructions.NEW_IDENTIFIER)
-                        elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
-                            self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
-                            pass
-                        elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
-                            pass
-                        elif c != '"' and self.current_state == TokenConstructions.STRING_2:
-                            pass
-                        elif c in ' ':
-                            if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
-                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
-                                self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
-                            elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
-                                if current_identifier == 'if':
-                                    self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
-                                else:
-                                    self.set_state(TokenConstructions.END_OF_IDENTIFIER)
-                                    self.set_identifier(current_identifier)
-                            elif self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
-                                if current_identifier == 'not':
-                                    self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR)
-                                else:
-                                    self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END)
-                            elif self.current_state == TokenConstructions.ELIF_DECLARATION_START:
-                                self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION)
+                        self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
+                        current_identifier = ''
+                    elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state in (TokenConstructions.NEW_IDENTIFIER,
+                                                                               TokenConstructions.EQUATION_NEW_IDENTIFIER,
+                                                                               TokenConstructions.FUNCTION_CALL_NEW_ARGUMENT):
+                        pass
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state in {TokenConstructions.EQUATION_NEW_OPERATOR,
+                                                                               TokenConstructions.EQUATION}:
+                        self.set_state(TokenConstructions.EQUATION_NEW_IDENTIFIER)
+                    elif self.current_state is None and c in TOKEN_ALLOWED_FIRST_SYMBOL:
+                        self.set_state(TokenConstructions.NEW_IDENTIFIER)
+                    elif c in string.digits and self.current_state == TokenConstructions.EQUATION:
+                        self.set_state(TokenConstructions.NEW_CONSTANT_INTEGER)
+                    elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                        pass
+                    elif c != '\'' and self.current_state == TokenConstructions.STRING_1:
+                        pass
+                    elif c != '"' and self.current_state == TokenConstructions.STRING_2:
+                        pass
+                    elif c in ' ':
+                        if self.current_state in {TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                  TokenConstructions.NEW_CONSTANT_FLOAT}:
+                            self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
+                        elif self.current_state == TokenConstructions.NEW_IDENTIFIER:
+                            if current_identifier == 'if':
+                                self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
+                                self.is_logical_expression = True
+                                self.is_indent_obliged = True
+                            else:
+                                self.set_state(TokenConstructions.END_OF_IDENTIFIER)
+                                self.set_identifier(current_identifier)
+                        elif self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
+                            if current_identifier == 'not':
+                                self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR)
+                            else:
+                                self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END)
+                        elif self.current_state == TokenConstructions.ELIF_DECLARATION_START:
+                            if current_identifier != 'elif':
+                                raise SynthaxError(f"недопустимый токен {current_identifier}", line_number,
+                                                   current_character_number)
+                            self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION)
+                            self.is_indent_obliged = True
 
-                            current_identifier = ''
+                        current_identifier = ''
 
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_START:
-                            self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION:
-                            self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER)
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR:
-                            self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
-                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER:
-                            pass
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_START:
-                            pass
-                        elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION:
-                            self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
-                        elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
-                            pass
-                        elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER_END,
-                                                                 TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER,}:
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.set_state(TokenConstructions.IF_DECLARATION_INSTRUCTIONS)
-                            open_indent_blocks.append('if')
-                            current_indent += 1
-                        elif c == ':' and self.current_state in {TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END,
-                                                                 TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER,}:
-                            self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            self.set_state(TokenConstructions.ELIF_DECLARATION_INSTRUCTIONS)
-                            open_indent_blocks.pop()
-                            open_indent_blocks.append('elif')
-                            current_indent += 1
-                        elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
-                            self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
-                        elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
-                            pass
-                        elif c == '\n':
-                            pass  # обработка ниже
-                        else:
-                            raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_START:
+                        self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION)
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION:
+                        self.set_state(TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER)
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_NOT_OPERATOR:
+                        self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
+                    elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER:
+                        pass
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_START:
+                        pass
+                    elif c in TOKEN_ALLOWED_FIRST_SYMBOL and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION:
+                        self.set_state(TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER)
+                    elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state == TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER:
+                        pass
+                    elif c == ':' and self.current_state in {TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER_END,
+                                                             TokenConstructions.IF_DECLARATION_EXPRESSION_IDENTIFIER,}:
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.IF_DECLARATION_INSTRUCTIONS)
+                        open_indent_blocks.append('if')
+                        current_indent += 1
+                    elif c == ':' and self.current_state in {TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER_END,
+                                                             TokenConstructions.ELIF_DECLARATION_EXPRESSION_IDENTIFIER,}:
+                        self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                        self.set_state(TokenConstructions.ELIF_DECLARATION_INSTRUCTIONS)
+                        open_indent_blocks.pop()
+                        open_indent_blocks.append('elif')
+                        current_indent += 1
+                    elif c == '.' and self.current_state == TokenConstructions.NEW_CONSTANT_INTEGER:
+                        self.set_state(TokenConstructions.NEW_CONSTANT_FLOAT)
+                    elif c in string.digits and self.current_state == TokenConstructions.NEW_CONSTANT_FLOAT:
+                        pass
+                    elif c == '\n':
+                        pass  # обработка ниже
+                    else:
+                        print(repr(self.current_state))
+                        raise SynthaxError(f"недопустимый символ", line_number, current_character_number)
 
-                        # обработка последнего символа должна быть вынесена в параллельный блок
-                        if c == '\n' or len(line_without_comments) == current_character_number:
-                            if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
-                                                      TokenConstructions.EQUATION_NEW_IDENTIFIER,
-                                                      TokenConstructions.NEW_CONSTANT_INTEGER,
-                                                      TokenConstructions.NEW_CONSTANT_FLOAT}:
-                                if self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
-                                    self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                    # обработка последнего символа должна быть вынесена в параллельный блок
+                    if c == '\n' or len(line_without_comments) == current_character_number:
+                        # сброс обязательности отступа после условного оператора
+                        if self.is_indent_obliged:
+                            self.is_indent_obliged = False
+
+                        if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
+                                                  TokenConstructions.EQUATION_NEW_IDENTIFIER,
+                                                  TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                  TokenConstructions.NEW_CONSTANT_FLOAT}:
+                            if self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
+                                self.check_identifier_declared(current_identifier, line_number, current_character_number)
+                            if not self.is_logical_expression:
                                 self.equation_stack.append(current_identifier)
 
-                            if self.current_state in {TokenConstructions.EQUATION_NEW_IDENTIFIER,
-                                                      TokenConstructions.NEW_CONSTANT_INTEGER,
-                                                      TokenConstructions.NEW_CONSTANT_FLOAT,
-                                                      TokenConstructions.END_OF_CONSTRUCTION}  \
-                                and len(self.equation_stack):
-                                # print(f'equation stack: {" ".join(self.equation_stack)}')
+                        if self.current_state in {TokenConstructions.EQUATION_NEW_IDENTIFIER,
+                                                  TokenConstructions.NEW_CONSTANT_INTEGER,
+                                                  TokenConstructions.NEW_CONSTANT_FLOAT,
+                                                  TokenConstructions.END_OF_CONSTRUCTION}  \
+                            and len(self.equation_stack):
+                            # print(f'equation stack: {" ".join(self.equation_stack)}')
+                            if self.equation_stack[0] not in self.identifier_table.keys():
                                 self.identifier_table[self.equation_stack[0]] = self.equation_stack[2:]
-                            self.set_state(None)
+                        self.set_state(None)
 
-                            current_identifier = ''
-                            self.equation_stack.clear()
+                        current_identifier = ''
+                        self.equation_stack.clear()
 
                     current_character_number += 1
 
