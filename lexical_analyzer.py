@@ -167,8 +167,7 @@ class LexicalAnalyzer:
                     elif c == '"' and self.current_state == TokenConstructions.STRING_2:
                         print(f'string: "{current_string}"')
                         if self.previous_state == TokenConstructions.EQUATION:
-                            if not self.is_logical_expression:
-                                self.equation_stack.append(repr(current_string))
+                            self.equation_stack.append(repr(current_string))
                         self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                         current_string = ''
                     elif c == '\'' and self.current_state == TokenConstructions.EQUATION:
@@ -176,8 +175,7 @@ class LexicalAnalyzer:
                     elif c == '\'' and self.current_state == TokenConstructions.STRING_1:
                         print(f'string: "{current_string}"')
                         if self.previous_state == TokenConstructions.EQUATION:
-                            if not self.is_logical_expression:
-                                self.equation_stack.append(repr(current_string))
+                            self.equation_stack.append(repr(current_string))
                         self.set_state(TokenConstructions.END_OF_CONSTRUCTION)
                         current_string = ''
                     elif c == '=' and self.current_state in {TokenConstructions.NEW_IDENTIFIER,
@@ -186,9 +184,8 @@ class LexicalAnalyzer:
                             self.set_identifier(current_identifier)
                         self.check_identifier_not_keyword(self.last_identifier, line_number, current_character_number)
                         self.set_state(TokenConstructions.EQUATION)
-                        if not self.is_logical_expression:
-                            self.equation_stack.append(self.last_identifier)
-                            self.equation_stack.append(c)
+                        self.equation_stack.append(self.last_identifier)
+                        self.equation_stack.append(c)
                         current_identifier = ''
                     elif c == '=' and self.current_state == TokenConstructions.EQUATION:
                         raise SynthaxError(f"недопустимый токен {c}", line_number, current_character_number)
@@ -198,9 +195,8 @@ class LexicalAnalyzer:
                         if current_identifier in LOGICAL_VALUES:
                             raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                         self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                        if not self.is_logical_expression:
-                            self.equation_stack.append(current_identifier)
-                            self.equation_stack.append(c)
+                        self.equation_stack.append(current_identifier)
+                        self.equation_stack.append(c)
                         self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         current_identifier = ''
                     elif c == '-' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
@@ -209,9 +205,8 @@ class LexicalAnalyzer:
                         if current_identifier in LOGICAL_VALUES:
                             raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                         self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                        if not self.is_logical_expression:
-                            self.equation_stack.append(current_identifier)
-                            self.equation_stack.append(c)
+                        self.equation_stack.append(current_identifier)
+                        self.equation_stack.append(c)
                         self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         current_identifier = ''
                     elif c == '*' and self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
@@ -220,9 +215,8 @@ class LexicalAnalyzer:
                         if current_identifier in LOGICAL_VALUES:
                             raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                         self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                        if not self.is_logical_expression:
-                            self.equation_stack.append(current_identifier)
-                            self.equation_stack.append(c)
+                        self.equation_stack.append(current_identifier)
+                        self.equation_stack.append(c)
                         self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         current_identifier = ''
                         self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
@@ -232,9 +226,8 @@ class LexicalAnalyzer:
                         if current_identifier in LOGICAL_VALUES:
                             raise SynthaxError(f"недопустимый токен {current_identifier}", line_number, current_character_number)
                         self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                        if not self.is_logical_expression:
-                            self.equation_stack.append(current_identifier)
-                            self.equation_stack.append(c)
+                        self.equation_stack.append(current_identifier)
+                        self.equation_stack.append(c)
                         self.set_state(TokenConstructions.EQUATION_NEW_OPERATOR)
                         current_identifier = ''
                     elif c in TOKEN_ALLOWED_SYMBOLS and self.current_state in (TokenConstructions.NEW_IDENTIFIER,
@@ -322,6 +315,7 @@ class LexicalAnalyzer:
                         # сброс обязательности отступа после условного оператора
                         if self.is_indent_obliged:
                             self.is_indent_obliged = False
+                            self.is_logical_expression = False
 
                         if self.current_state in {TokenConstructions.NEW_IDENTIFIER,
                                                   TokenConstructions.EQUATION_NEW_IDENTIFIER,
@@ -329,8 +323,7 @@ class LexicalAnalyzer:
                                                   TokenConstructions.NEW_CONSTANT_FLOAT}:
                             if self.current_state == TokenConstructions.EQUATION_NEW_IDENTIFIER:
                                 self.check_identifier_declared(current_identifier, line_number, current_character_number)
-                            if not self.is_logical_expression:
-                                self.equation_stack.append(current_identifier)
+                            self.equation_stack.append(current_identifier)
 
                         if self.current_state in {TokenConstructions.EQUATION_NEW_IDENTIFIER,
                                                   TokenConstructions.NEW_CONSTANT_INTEGER,
